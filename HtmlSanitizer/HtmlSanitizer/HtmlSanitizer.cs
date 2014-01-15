@@ -112,65 +112,17 @@ namespace Westwind.Web.Utilities
           return;
         }
 
-        // For style tags, don't allow remote-linked stylesheets or
-        // items with CSS expressions/import directives
-        if (node.Name == "style")
+        // For style tags, validate the inner contents of our
+        // style declarations.
+        if (node.Name == "style" && !IsValidStyle(node.InnerText))
         {
-          // Remove remote-linked stylesheets
-          if (string.IsNullOrWhiteSpace(node.InnerText))
-          {
             node.Remove();
             return;
-          }
-
-          // HACK: Look for CSS expressions, because
-          // ExCSS doesn't successfully parse them out.
-          if (_cssExpressionRegex.IsMatch(node.InnerText))
-          {
-            node.Remove();
-            return;
-          }
-
-          // Next, try to parse out the CSS using ExCSS.
-          // If it fails, we'll remove the node too.
-          try
-          {
-            var stylesheetParser = new ExCSS.Parser();
-            var stylesheet = stylesheetParser.Parse(node.InnerText);
-
-            // Make sure we have no import directives.
-            if (stylesheet.ImportDirectives.Count > 0)
-            {
-              node.Remove();
-              return;
-            }
-
-            // Note: this is disabled because ExCSS doesn't even recognize
-            // CSS expressions at the moment.
-            //// Make sure the value of no property declaration starts with
-            //// expression(
-            //foreach (ExCSS.StyleRule ruleset in stylesheet.Rulesets)
-            //{
-            //  foreach (ExCSS.Property propDecl in ruleset.Declarations)
-            //  {
-            //    if (propDecl.Term.ToString().Trim().ToLower().StartsWith("expression("))
-            //    {
-            //      node.Remove();
-            //      return;
-            //    }
-            //  }
-            //}
-          }
-          catch
-          {
-            // Some sort of parsing error, which means this style
-            // declaration is invalid.
-            node.Remove();
-            return;
-          }
         }
 
-        // remove script attributes
+        // Now filter out invalid attributes, most of which will be removed,
+        // but certain invalid attributes (such as blacklisted MIME types) will result
+        // in removing the entire element.
         if (node.HasAttributes)
         {
           for (int i = node.Attributes.Count - 1; i >= 0; i--)
@@ -194,7 +146,7 @@ namespace Westwind.Web.Utilities
               return;
             }
             // Remove CSS Expressions
-            else if (attr == "style" && val != null && (HasExpressionOrImportLinks(val) || HasScriptLinks(val)))
+            else if (attr == "style" && val != null && (!IsValidStyle(val) || HasScriptLinks(val)))
             {
               node.Attributes.Remove(currentAttribute);
             }
@@ -218,6 +170,72 @@ namespace Westwind.Web.Utilities
     }
 
     /// <summary>
+    /// Determines whether the specified text for the style declaration
+    /// (either as an inline attribute or a &lt;style&quot; element)
+    /// is valid.  
+    /// 
+    /// The presence of <c>@import</c> directives or
+    /// CSS expressions invalidates the style declaration.
+    /// Similarly, any parsing errors invalidate the style declaration.
+    /// </summary>
+    /// <param name="styleText">The text of the style declaration.</param>
+    /// <returns><c>true</c> if the specified style declaration is valid;
+    /// otherwise, <c>false</c>.</returns>
+    private static bool IsValidStyle(string styleText)
+    {
+      // Remove remote-linked stylesheets
+      if (string.IsNullOrWhiteSpace(styleText))
+      {
+        return false;
+      }
+
+      // HACK: Look for CSS expressions, because
+      // ExCSS doesn't successfully parse them out.
+      if (_cssExpressionRegex.IsMatch(styleText))
+      {
+        return false;
+      }
+
+      // Next, try to parse out the CSS using ExCSS.
+      // If it fails, we'll remove the node too.
+      try
+      {
+        var stylesheetParser = new ExCSS.Parser();
+        var stylesheet = stylesheetParser.Parse(styleText);
+
+        // Make sure we have no import directives.
+        if (stylesheet.ImportDirectives.Count > 0)
+        {
+          return false;
+        }
+
+        // Note: this is disabled because ExCSS doesn't even recognize
+        // CSS expressions at the moment.
+        //// Make sure the value of no property declaration starts with
+        //// expression(
+        //foreach (ExCSS.StyleRule ruleset in stylesheet.Rulesets)
+        //{
+        //  foreach (ExCSS.Property propDecl in ruleset.Declarations)
+        //  {
+        //    if (propDecl.Term.ToString().Trim().ToLower().StartsWith("expression("))
+        //    {
+        //      node.Remove();
+        //      return;
+        //    }
+        //  }
+        //}
+        return true;
+
+      }
+      catch
+      {
+        // Some sort of parsing error, which means this style
+        // declaration is invalid.
+        return false;
+      }
+    }
+
+    /// <summary>
     /// Determines whether the specified attribute value contains script links.
     /// </summary>
     /// <param name="value">The attribute value. It is assumed that this value
@@ -227,19 +245,6 @@ namespace Westwind.Web.Utilities
     private static bool HasScriptLinks(string value)
     {
       return value.Contains("javascript:") || value.Contains("vbscript:");
-    }
-
-    /// <summary>
-    /// Determines whether the specified attribute value contains 
-    /// a CSS &quot;expression&quot; or &quot;@import&quot; rule.
-    /// </summary>
-    /// <param name="value">The attribute value. It is assumed that this value
-    /// has already been normalized as lowercase.</param>
-    /// <returns><c>true</c> if the specified attribute value contains a CSS expression
-    /// or import; otherwise, <c>false</c>.</returns>
-    private static bool HasExpressionOrImportLinks(string value)
-    {
-      return _cssExpressionRegex.IsMatch(value) || value.Contains("@import");
     }
 
     /// <summary>
