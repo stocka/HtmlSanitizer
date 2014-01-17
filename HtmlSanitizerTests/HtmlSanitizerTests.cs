@@ -1,10 +1,10 @@
 ﻿using System;
-using System.Text;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Westwind.Web.Utilities;
-using System.Text.RegularExpressions;
 
 namespace HtmlSanitizerTests
 {
@@ -13,6 +13,17 @@ namespace HtmlSanitizerTests
   {
 
     #region "Style Attribute Sanitization"
+
+    [TestMethod]
+    [Description("Ensures that style attributes that contain valid CSS are preserved.")]
+    public void StyleAttributeValid()
+    {
+      var html = "<div style=\"color: red;\" ></div>";
+      string result = HtmlSanitizer.SanitizeHtml(html);
+
+      // Style attribute should be preserved
+      Assert.IsTrue(result.Contains("style="));
+    }
 
     [TestMethod]
     [Description("Ensures that style attributes that contain CSS expressions are sanitized.")]
@@ -39,6 +50,19 @@ namespace HtmlSanitizerTests
     #endregion
 
     #region "Style Element Sanitization"
+
+    [TestMethod]
+    [Description("Ensures that style elements that contain valid CSS are preserved.")]
+    public void StyleElementValid()
+    {
+      var html = "<style type=\"text/css\">" +
+        "div { color: red; background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAAK/INwWK6QAAABl0RVh0U29mdHdhcmUAQWRvYmUgSW1hZ2VSZWFkeXHJZTwAAADXSURBVHjaYmCgEDDjkTMAYj8gVgfiX0D8llhDtYD4BhD/R8OHgZgfXTETFgPu4HDZFyD+SKwrvNFs/wP1EklgC5IBS3EpYsRjgAo0EDmBeBkQ38emiAWPAaCweARl3yfkApBNEkjioMDaAY06UICKAbETWiy8AOJNMM4utED7BlWcD8X8UDFkNbuQXTINS7wvQpJfikV+GrIBTliizRhJ3hgqhqzGCT08NiJJTsASXpOR5DdiC1AhID4GxE+AmAeLPA9U7hhULVbABs08+PIJGwM1AUCAAQBwgESf0bWQYwAAAABJRU5ErkJggg==') }" +
+        "</style>";
+      string result = HtmlSanitizer.SanitizeHtml(html);
+
+      // Style element should be preseved
+      Assert.IsTrue(result.Contains("<style"));
+    }
 
     [TestMethod]
     [Description("Ensures that style elements that contain CSS expressions are sanitized.")]
@@ -74,20 +98,33 @@ namespace HtmlSanitizerTests
     [Description("Ensures that script tags are removed entirely.")]
     public void ScriptTagRemoval()
     {
-      var html = "Should remove Script:" +
-                 "<script>alert('hello');</script>";
+      var html = "<script>alert('hello');</script>";
 
       string result = HtmlSanitizer.SanitizeHtml(html);
 
       Assert.IsFalse(result.Contains("<script>") || result.Contains("</script>"));
-      Console.WriteLine(result);
+    }
+
+    [TestMethod]
+    [Description("Ensures that frameset and frame tags are removed entirely.")]
+    public void FramesetAndFrameRemoval()
+    {
+      var html = "<frameset>" +
+          "<frame src=\"http://example.com/frame1.html\" />" +
+          "<frame src=\"http://example.com/frame2.html\" />" +
+          "</frameset>";
+
+      string result = HtmlSanitizer.SanitizeHtml(html);
+
+      Assert.IsFalse(result.Contains("<frameset>") || result.Contains("</frameset>"));
+      Assert.IsFalse(result.Contains("<frame ") || result.Contains("</frame>"));
     }
 
     [TestMethod]
     [Description("Ensures that iframe tags are removed entirely.")]
     public void IFrameRemoval()
     {
-      var html = "<iframe src=\"http://example.com\" class='iframeclass'></iframe> <div></div>";
+      var html = "<iframe src=\"http://example.com\"></iframe>";
 
       string result = HtmlSanitizer.SanitizeHtml(html);
 
@@ -95,16 +132,42 @@ namespace HtmlSanitizerTests
       Assert.IsFalse(result.Contains("<iframe>") || result.Contains("</iframe>"));
     }
 
+    [TestMethod()]
+    [Description("Ensures that embeddable tags (embed, object, applet) are removed entirely.")]
+    public void EmbeddableTagsRemoval()
+    {
+      var html = "<embed type=\"video/quicktime\" src=\"movie.mov\" width=\"640\" height=\"480\">" +
+        "<object data=\"move.swf\" type=\"application/x-shockwave-flash\"></object>" +
+        "<applet code=\"game.class\" archive=\"game.zip\" height=\"250\" width=\"350\"></applet>";
+
+      string result = HtmlSanitizer.SanitizeHtml(html);
+
+      // Embeds, applets, and objects should be removed.
+      Assert.IsFalse(result.Contains("<embed ") || result.Contains("</embed>"));
+      Assert.IsFalse(result.Contains("<object ") || result.Contains("</object>"));
+      Assert.IsFalse(result.Contains("<applet ") || result.Contains("</applet>"));
+    }
+
     #endregion
 
     #region "Anchor Tag Sanitization"
 
     [TestMethod]
+    [Description("Ensures that an anchor tag with a valid href is preserved.")]
+    public void AnchorTagValid()
+    {
+      var html = "<a href=\"http://example.com/\" />";
+
+      string result = HtmlSanitizer.SanitizeHtml(html);
+
+      Assert.IsTrue(result.Contains("href="));
+    }
+
+    [TestMethod]
     [Description("Ensures that an anchor tag with a JavaScript href is sanitized.")]
     public void AnchorTagRemoveJavascriptHref()
     {
-      var html = "Should remove href (javascript:) " +
-                 "<a href=\"javascript:alert('xss');\" />";
+      var html = "<a href=\"javascript:alert('xss');\" />";
 
       string result = HtmlSanitizer.SanitizeHtml(html);
 
@@ -129,11 +192,22 @@ namespace HtmlSanitizerTests
     }
 
     [TestMethod]
+    [Description("Ensures that a valid src attribute, using a data URI, of an image is preserved.")]
+    public void ImageTagValidDataUri()
+    {
+      var html = "<img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAAK/INwWK6QAAABl0RVh0U29mdHdhcmUAQWRvYmUgSW1hZ2VSZWFkeXHJZTwAAADXSURBVHjaYmCgEDDjkTMAYj8gVgfiX0D8llhDtYD4BhD/R8OHgZgfXTETFgPu4HDZFyD+SKwrvNFs/wP1EklgC5IBS3EpYsRjgAo0EDmBeBkQ38emiAWPAaCweARl3yfkApBNEkjioMDaAY06UICKAbETWiy8AOJNMM4utED7BlWcD8X8UDFkNbuQXTINS7wvQpJfikV+GrIBTliizRhJ3hgqhqzGCT08NiJJTsASXpOR5DdiC1AhID4GxE+AmAeLPA9U7hhULVbABs08+PIJGwM1AUCAAQBwgESf0bWQYwAAAABJRU5ErkJggg==\" />";
+
+      string result = HtmlSanitizer.SanitizeHtml(html);
+
+      Assert.IsTrue(result.Contains("src="));
+      Console.WriteLine(result);
+    }
+
+    [TestMethod]
     [Description("Ensures that a src attribute of an image that contains a JavaScript expression is sanitized.")]
     public void ImageTagRemoveJavascriptSrc()
     {
-      var html = "Should remove src (javascript:) " +
-                 "<img src=\"javascript:alert('xss');\" />";
+      var html = "<img src=\"javascript:alert('xss');\" />";
 
       string result = HtmlSanitizer.SanitizeHtml(html);
 
@@ -145,8 +219,7 @@ namespace HtmlSanitizerTests
     [Description("Ensures that a src attribute of an image that contains a JavaScript expression (using illegal quotes) is sanitized.")]
     public void ImageTagRemoveJavascriptSrcIllegalQuotes()
     {
-      var html = "Should remove src (javascript:) " +
-                 "<img src=`javascript:alert('xss');` />";
+      var html = "<img src=`javascript:alert('xss');` />";
 
       string result = HtmlSanitizer.SanitizeHtml(html);
 
