@@ -84,6 +84,7 @@ namespace HtmlSanitizerTests
       var html = "<style type=\"text/css\">" +
         "@import url('external-stylesheet.css')" +
         "</style>";
+
       string result = HtmlSanitizer.SanitizeHtml(html);
 
       // Style element should be removed
@@ -93,6 +94,42 @@ namespace HtmlSanitizerTests
     #endregion
 
     #region "Forbidden Tag Sanitization (script, iframe, etc.)"
+
+    [TestMethod]
+    [Description("Ensures that head tags are removed entirely.")]
+    public void HeadTagRemoval()
+    {
+      var html = "<head><title>Hello, is it me you're looking for?</title></head>";
+
+      string result = HtmlSanitizer.SanitizeHtml(html);
+
+      // Head element should be removed
+      Assert.IsFalse(result.Contains("<head"));
+    }
+
+    [TestMethod]
+    [Description("Ensures that link tags are removed entirely.")]
+    public void LinkTagRemoval()
+    {
+      var html = "<link rel=\"stylesheet\" href=\"http://example.com/stylesheet.css\" type=\"text/css\" />";
+
+      string result = HtmlSanitizer.SanitizeHtml(html);
+
+      // Link element should be removed
+      Assert.IsFalse(result.Contains("<link "));
+    }
+
+    [TestMethod]
+    [Description("Ensures that meta tags are removed entirely.")]
+    public void MetaTagRemoval()
+    {
+      var html = "<meta name=\"GENERATOR\" content=\"Microsoft FrontPage 4.0\" />";
+
+      string result = HtmlSanitizer.SanitizeHtml(html);
+
+      // Head element should be removed
+      Assert.IsFalse(result.Contains("<meta "));
+    }
 
     [TestMethod]
     [Description("Ensures that script tags are removed entirely.")]
