@@ -12,6 +12,24 @@ namespace HtmlSanitizerTests
   public class HtmlSanitizerTests
   {
 
+    #region "General HTML Sanitization"
+
+    [TestMethod]
+    [Description("Ensures that HTML entities are not double-encoded.")]
+    public void AvoidDoubleEncoding()
+    {
+      var html = " &amp; &gt; &lt; &apos; ";
+
+      var result = HtmlSanitizer.SanitizeHtml(html);
+
+      Assert.IsFalse(result.Contains("&amp;amp;"));
+      Assert.IsFalse(result.Contains("&amp;lt;"));
+      Assert.IsFalse(result.Contains("&amp;gt;"));
+      Assert.IsFalse(result.Contains("&amp;apos;"));
+    }
+
+    #endregion
+
     #region "Style Attribute Sanitization"
 
     [TestMethod]

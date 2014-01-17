@@ -71,9 +71,10 @@ namespace Westwind.Web.Utilities
     /// <returns>The sanitized version of the HTML.</returns>
     public static string SanitizeHtml(string html)
     {
-      // Load in the HTML string into an HTML document
+      // Load in the HTML string into an HTML document -
+      // decode the HTML first to avoid double-encoding
       var doc = new HtmlAgilityPack.HtmlDocument();
-      doc.LoadHtml(html);
+      doc.LoadHtml(System.Web.HttpUtility.HtmlDecode(html));
 
       // Sanitize the root document node
       SanitizeHtmlNode(doc.DocumentNode);
